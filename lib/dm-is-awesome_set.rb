@@ -90,9 +90,18 @@ module DataMapper
           ret
         end
 
-        def adjust_gap!(scoped_set, at, adjustment) #:nodoc:
-          scoped_set.all(:rgt.gt => at).adjust!({:rgt => adjustment},true)
-          scoped_set.all(:lft.gt => at).adjust!({:lft => adjustment},true)
+        def adjust_gap!(scoped_set, at, adjustment)
+          scoped_set.repository.adapter.execute(<<-sql, adjustment, at)
+            UPDATE #{scoped_set.model.storage_name}
+            SET rgt = rgt + ?
+            WHERE rgt > ?
+          sql
+
+          scoped_set.repository.adapter.execute(<<-sql, adjustment, at)
+            UPDATE #{scoped_set.model.storage_name}
+            SET lft = lft + ?
+            WHERE lft > ?
+          sql
         end
 
         # Return a hash that gets the roots
