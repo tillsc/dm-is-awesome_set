@@ -168,7 +168,7 @@ module DataMapper
         # @see move_without_saving
 
         def move(vector)
-          get_class.transaction do
+          with_transaction_if_none do
             move_without_saving(vector)
             save!
           end
@@ -274,7 +274,7 @@ module DataMapper
           # Trigger all the before :destroy methods
           sads.each { |sad| before_methods.each { |bf| sad.send(bf) } }
           # dup is called here because destroy! likes to clear out the array, understandably.
-          get_class.transaction do
+          with_transaction_if_none do
             sads.dup.destroy!
             adjust_gap!(full_set, lft, -(rgt - lft + 1))
           end
@@ -285,7 +285,7 @@ module DataMapper
         # Same as @destroy, but does not run the hooks
         def destroy!
           sad = self_and_descendants
-          get_class.transaction do
+          with_transaction_if_none do
             sad.dup.destroy!
             adjust_gap!(full_set, lft, -(rgt - lft + 1))
           end
@@ -449,6 +449,18 @@ module DataMapper
         def get_class #:no_doc:
           self.class.get_class
         end
+
+        def with_transaction_if_none #:no_doc:
+          tx = DataMapper.repository(get_class.default_repository_name).adapter.current_transaction
+          if tx.nil? || tx.none?
+            get_class.transaction do
+              yield
+            end
+          else
+            yield
+          end
+        end
+
       end # mod InstanceMethods
 
       Model.append_extensions(self)
